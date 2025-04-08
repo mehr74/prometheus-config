@@ -1,67 +1,55 @@
-version: '3.1'
-
 services:
   prometheus:
     image: prom/prometheus
     volumes:
       - ./config:/prometheus
-      - ./data/prometheus:/data
     command:
       - '--config.file=/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/data'
     ports:
       - 9090:9090
     depends_on:
       - alertmanager
     restart: always
-    networks:
-      - promnet
 
   alertmanager:
     image: prom/alertmanager
     volumes:
       - ./config:/prometheus
-      - ./data/alertmanager:/data
     command:
       - '--config.file=/prometheus/alertmanager.yml'
-      - '--storage.path=/data'
     ports:
       - 9093:9093
-    networks:
-      - promnet
 
   node:
     image: prom/node-exporter
     ports:
       - 9100:9100
     restart: always
-    networks:
-      - promnet
 
   cadvisor:
-    image: google/cadvisor
+    image: gcr.io/cadvisor/cadvisor
+    privileged: true
     ports:
       - 9880:8080
     volumes:
       - /:/rootfs:ro
-      - /var/run:/var/run:rw
+      - /var/run/docker.sock:/var/run/docker.sock:rw
       - /sys:/sys:ro
       - /var/lib/docker/:/var/lib/docker:ro
-    networks:
-      - promnet
+      - /dev/disk/:/dev/disk:ro
+    devices:
+      - /dev/kmsg
 
   collectd:
     image: prom/collectd-exporter
     ports:
       - 9103:9103
     restart: always
-    networks:
-      - promnet
 
   alerta:
     image: alerta/alerta-web
     ports:
-      - 9080:8080
+      - 8080:8080
     depends_on:
       - db
     environment:
@@ -72,20 +60,8 @@ services:
       - PLUGINS=remote_ip,reject,heartbeat,blackout,prometheus
       - ALERTMANAGER_API_URL=http://alertmanager:9093
     restart: always
-    networks:
-      - promnet
-      - dbnet
 
   db:
     image: mongo
-    volumes:
-      - ./data/mongodb:/data/db
     restart: always
-    networks:
-      - dbnet
 
-networks:
-  promnet:
-    driver: bridge
-  dbnet:
-    driver: bridge
